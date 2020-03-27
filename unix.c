@@ -18,6 +18,24 @@
 #define ENET_BUILDING_LIB 1
 #include "enet/enet.h"
 
+#if defined(__AROS__) || defined(__MORPHOS__)
+#include <proto/socket.h>
+#ifdef __MORPHOS__
+#include <net/socketbasetags.h>
+#else
+#include <bsdsocket/socketbasetags.h>
+#endif
+#include <proto/exec.h>
+struct Library *SocketBase = NULL;
+#define ioctl IoctlSocket
+#define close CloseSocket
+int inet_aton(const char *cp, struct in_addr *addr)
+{
+    addr->s_addr = inet_addr(cp);
+    return (addr->s_addr == INADDR_NONE) ? 0 : 1;
+}
+#endif
+
 #ifdef __APPLE__
 #ifdef HAS_POLL
 #undef HAS_POLL
@@ -66,12 +84,29 @@ static enet_uint32 timeBase = 0;
 int
 enet_initialize (void)
 {
+#if defined(__AROS__) || defined(__MORPHOS__)
+    if (!(SocketBase = OpenLibrary("bsdsocket.library", 4)))
+        return -1;
+
+    if (SocketBaseTags(SBTM_SETVAL(SBTC_ERRNOPTR(sizeof(errno))), (IPTR)&errno, TAG_DONE))
+    {
+        enet_deinitialize();
+        return -1;
+    }
+#endif
     return 0;
 }
 
 void
 enet_deinitialize (void)
 {
+#if defined(__AROS__) || defined(__MORPHOS__)
+    if (SocketBase)
+    {
+        CloseLibrary(SocketBase);
+        SocketBase = NULL;
+    }
+#endif
 }
 
 enet_uint32
