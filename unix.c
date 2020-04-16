@@ -22,12 +22,14 @@
 #include <proto/socket.h>
 #ifdef __MORPHOS__
 #include <net/socketbasetags.h>
+typedef LONG socklen_t;
+#define HAS_SOCKLEN_T 1
 #else
 #include <bsdsocket/socketbasetags.h>
 #endif
 #include <proto/exec.h>
 struct Library *SocketBase = NULL;
-#define ioctl IoctlSocket
+#define ioctl(d, request, argp) IoctlSocket((d), (request), (char *)argp)
 #define close CloseSocket
 int inet_aton(const char *cp, struct in_addr *addr)
 {
@@ -482,7 +484,11 @@ enet_socket_send (ENetSocket socket,
         sin.sin_port = ENET_HOST_TO_NET_16 (address -> port);
         sin.sin_addr.s_addr = address -> host;
 
+#ifdef __MORPHOS__
+        msgHdr.msg_name = (caddr_t)& sin;
+#else
         msgHdr.msg_name = & sin;
+#endif
         msgHdr.msg_namelen = sizeof (struct sockaddr_in);
     }
 
@@ -516,7 +522,11 @@ enet_socket_receive (ENetSocket socket,
 
     if (address != NULL)
     {
+#ifdef __MORPHOS__
+        msgHdr.msg_name = (caddr_t)& sin;
+#else
         msgHdr.msg_name = & sin;
+#endif
         msgHdr.msg_namelen = sizeof (struct sockaddr_in);
     }
 
